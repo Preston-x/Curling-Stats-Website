@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shot+ Player Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        input, button {
+            padding: 5px 10px;
+            margin-right: 5px;
+            font-size: 14px;
+        }
+        table { 
+            border-collapse: collapse; 
+            width: 90%; 
+            margin-top: 20px;
+        }
+        th, td { 
+            border: 1px solid #333; 
+            padding: 8px; 
+            text-align: center; 
+        }
+        th { 
+            background-color: #f2f2f2; 
+        }
+        .delete-btn {
+            color: rgb(214, 78, 78);
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .year-total {
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .overall-total {
+            font-weight: bold;
+            background-color: #d0d0d0;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Search Player</h2>
+<p><a href="/leaderboard_page">View Leaderboard</a></p>
+
+<input id="playerInput" placeholder="Gushue, B">
+<button onclick="searchPlayer()">Search</button>
+
+<table border="1" id="resultsTable">
+    <thead>
+        <tr>
+            <th></th>
+            <th>Player</th>
+            <th>Tournament</th>
+            <th>Tournament Rating</th>
+            <th>Shots</th>
+            <th>Shot+</th>
+            <th>Adjusted Shot+</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script>
+document.getElementById("playerInput").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") searchPlayer();
+});
+
+let currentRows = [];
+
+async function searchPlayer() {
+    const name = document.getElementById("playerInput").value;
+    const response = await fetch(`/search?player=${encodeURIComponent(name)}`);
+    const data = await response.json();
+
+    // Keep only individual tournaments, not totals
+    currentRows = data.filter(r => !r.Player.startsWith("TOTAL"));
+
+    // Calculate Adjusted Shot+ for each row dynamically
+    currentRows.forEach(r => {
+        r["Adjusted Shot+"] = Number(r["Shot+"]) * Number(r["Tournament Rating"]) / 100;
+    });
+
+    renderTable();
+}
+
+function removeRow(index) {
+    currentRows.splice(index, 1);
+    renderTable();
+}
+
+function renderTable() {
+    const tbody = document.querySelector("#resultsTable tbody");
+    tbody.innerHTML = "";
+
+    if (currentRows.length === 0) return;
+
+    // Sort by Year if exists
+    currentRows.sort((a, b) => (a.Year || 0) - (b.Year || 0));
+
+    // Group rows by year
+    const rowsByYear = {};
+    currentRows.forEach(r => {
+        const year = r.Year || 0;
+        if (!rowsByYear[year]) rowsByYear[year] = [];
+        rowsByYear[year].push(r);
+    });
+
+    // Render each year's tournaments + subtotal
+    Object.keys(rowsByYear).sort().forEach(year => {
+        const rows = rowsByYear[year];
+
+        rows.forEach(row => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><span class="delete-btn" onclick="removeRow(${currentRows.indexOf(row)})">✖</span></td>
+                <td>${row.Player}</td>
+                <td>${row.Tournament}</td>
+                <td>${row["Tournament Rating"]}</td>
+                <td>${row.Shots}</td>
+                <td>${row["Shot+"]}</td>
+                <td>${row["Adjusted Shot+"].toFixed(2)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Year subtotal (weighted by Shots)
+        const total = computeTotals(rows);
+        const trTotal = document.createElement("tr");
+        trTotal.classList.add("year-total");
+        trTotal.innerHTML = `
+            <td></td>
+            <td>TOTAL ${year}</td>
+            <td>-</td>
+            <td>${total.tournamentRating}</td>
+            <td>${total.shots}</td>
+            <td>${total.shotPlus}</td>
+            <td>${total.adjustedShotPlus}</td>
+        `;
+        tbody.appendChild(trTotal);
+    });
+
+    // Overall total
+    const overallTotal = computeTotals(currentRows);
+    const trOverall = document.createElement("tr");
+    trOverall.classList.add("overall-total");
+    trOverall.innerHTML = `
+        <td></td>
+        <td>TOTAL</td>
+        <td>-</td>
+        <td>${overallTotal.tournamentRating}</td>
+        <td>${overallTotal.shots}</td>
+        <td>${overallTotal.shotPlus}</td>
+        <td>${overallTotal.adjustedShotPlus}</td>
+    `;
+    tbody.appendChild(trOverall);
+}
+
+// Compute totals weighted by Shots
+function computeTotals(rowsSubset = currentRows) {
+    let totalShots = 0;
+    let sumShotPlus = 0;
+    let sumTR = 0;
+    let sumAdjusted = 0;
+
+    for (const r of rowsSubset) {
+        const shots = Number(r.Shots);
+        const shotPlus = Number(r["Shot+"]);
+        const tr = Number(r["Tournament Rating"]);
+        const adj = Number(r["Adjusted Shot+"]);
+
+        totalShots += shots;
+        sumShotPlus += shotPlus * shots;
+        sumTR += tr * shots;
+        sumAdjusted += adj * shots;
+    }
+
+    if (totalShots === 0) {
+        return { shots: 0, shotPlus: 0, tournamentRating: 0, adjustedShotPlus: 0 };
+    }
+
+    return {
+        shots: totalShots.toFixed(0),
+        shotPlus: (sumShotPlus / totalShots).toFixed(2),
+        tournamentRating: (sumTR / totalShots).toFixed(2),
+        adjustedShotPlus: (sumAdjusted / totalShots).toFixed(2)
+    };
+}
+</script>
+
+</body>
+</html>
