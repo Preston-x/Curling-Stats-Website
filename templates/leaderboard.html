@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shot+ Leaderboard</title>
+    <style>
+        table { border-collapse: collapse; width: 80%; margin-top: 20px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        input { padding: 5px; margin-top: 20px; }
+        button { padding: 5px 10px; margin-left: 5px; }
+    </style>
+</head>
+<body>
+
+<h2>Shot+ Leaderboard</h2>
+
+<input id="searchInput" placeholder="Filter player (optional)">
+<button onclick="loadLeaderboard()">Load Leaderboard</button>
+
+<table id="leaderboardTable">
+    <thead>
+        <tr>
+            <th>Rank</th>
+            <th>Player</th>
+            <th>Total Shots</th>
+            <th>Weighted Shot+</th>
+            <th>Weighted Tournament Rating</th>
+            <th>Adjusted Shot+</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script>
+async function loadLeaderboard() {
+    const response = await fetch('/leaderboard');
+    const data = await response.json();
+
+    const filter = document.getElementById("searchInput").value.toLowerCase();
+    const tbody = document.querySelector("#leaderboardTable tbody");
+    tbody.innerHTML = "";
+
+    let rank = 1;
+    for (const row of data) {
+        if (filter && !row["Player"].toLowerCase().includes(filter)) continue;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${rank}</td>
+            <td>${row["Player"]}</td>
+            <td>${row["Total Shots"]}</td>
+            <td>${row["Weighted Shot+"]}</td>
+            <td>${row["Weighted Tournament Rating"]}</td>
+            <td>${row["Adjusted Shot+"]}</td>
+        `;
+        tbody.appendChild(tr);
+        rank++;
+    }
+}
+
+// Load leaderboard immediately when page opens
+loadLeaderboard();
+</script>
+
+</body>
+</html>
