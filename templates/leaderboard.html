@@ -44,14 +44,19 @@ async function loadLeaderboard() {
     for (const row of data) {
         if (filter && !row["Player"].toLowerCase().includes(filter)) continue;
 
+        // Calculate Adjusted Shot+
+        const weightedShot = parseFloat(row["Weighted Shot+"]) || 0;
+        const weightedTournament = parseFloat(row["Weighted Tournament Rating"]) || 0;
+        const adjustedShot = ((weightedShot * weightedTournament) / 100).toFixed(2);
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${rank}</td>
             <td>${row["Player"]}</td>
             <td>${row["Total Shots"]}</td>
-            <td>${row["Weighted Shot+"]}</td>
-            <td>${row["Weighted Tournament Rating"]}</td>
-            <td>${row["Adjusted Shot+"]}</td>
+            <td>${weightedShot}</td>
+            <td>${weightedTournament}</td>
+            <td>${adjustedShot}</td>
         `;
         tbody.appendChild(tr);
         rank++;
